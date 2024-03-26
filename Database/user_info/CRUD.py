@@ -7,7 +7,6 @@ if __name__ == "__main__":
 
 from sqlalchemy.orm import Session
 from Database.user_info import models, schemas
-from Database.user_info.database import create_session
 from setting.setup import logger
 
 
