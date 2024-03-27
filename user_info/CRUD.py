@@ -6,7 +6,7 @@ if __name__ == "__main__":
     sys.path.append(str(Path.cwd()))
 
 from sqlalchemy.orm import Session
-from Database.user_info import models, schemas
+from user_info import models, schemas
 from setting.setup import logger
 
 
@@ -32,7 +32,7 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
 
 def get_data(db: Session, search_filter: dict):
     try:
-        result = db.query(models.User).filter_by(**search_filter).first()
+        result = db.query(models.User).filter(**search_filter).first()
     except Exception as e:
         logger.error(f"{e.__class__.__name__} : {str(e)}")
     return result
@@ -40,13 +40,25 @@ def get_data(db: Session, search_filter: dict):
 
 def get_user_by_id(db: Session, user_id: int):
     try:
-        result = db.query(models.User).filter_by(models.User.id == user_id).first()
+        result = db.query(models.User).filter(models.User.id == user_id).first()
     except Exception as e:
         logger.error(f"{e.__class__.__name__} : {str(e)}")
     return result
 
 
-def update_data(db: Session): ...
+def get_user_by_email(db: Session, user_email: int):
+    try:
+        result = db.query(models.User).filter(models.User.email == user_email).first()
+    except Exception as e:
+        logger.error(f"{e.__class__.__name__} : {str(e)}")
+    return result
 
 
-def delete_data(db: Session): ...
+def update_user_data(db: Session): ...
+
+
+def delete_user_data(db: Session): ...
+
+
+if __name__ == "__main__":
+    ...
