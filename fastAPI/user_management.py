@@ -5,13 +5,15 @@ if __name__ == "__main__":
 
     sys.path.append(str(Path.cwd()))
 
-from fastapi import FastAPI, Request, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-from setting.setup import logger
 from user_info import models, CRUD, schemas
 from user_info.database import SessionLocal, engine
 from FastApi import error_code
 from email_validator import validate_email, EmailNotValidError
+from markdown import markdown
+from setting import setup
 
 models.db.metadata.create_all(bind=engine)
 app = FastAPI()
@@ -25,36 +27,96 @@ def get_db():
         db.close()
 
 
-@app.get("/")
-async def read_root(request: Request):
-    return {"Hello": "World"}
+@app.get("/", response_class=HTMLResponse)
+async def show_readme():
+    """顯示readme_for_FastAPI.md的內容"""
+    try:
+        with open(setup.READ_ME_MD_PATH, "r", encoding="utf-8") as f:
+            markdown_content = f.read()
+
+        html_content = markdown(markdown_content)
+
+        html_response = f"""
+        <html>
+            <head>
+                <title>使用說明</title>
+            </head>
+            <body>
+                {html_content}
+            </body>
+        </html>
+        """
+
+        return html_response
+
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="File not found")
 
 
-@app.get("/users/{user_id}", response_model=schemas.User)
-def read_user(user_id: int, db: Session = Depends(get_db)):
+@app.get("/user/{user_id}", response_model=schemas.User)
+def get_user(user_id: int, db: Session = Depends(get_db), lang: str = "en-US"):
+    """依照id列出user"""
+
     db_user = CRUD.get_user_by_id(db, user_id=user_id)
+    error_hint = get_language_setup(lang)
     if db_user is None:
-        raise HTTPException(status_code=404, detail=error_code.en_US.USER_NOT_FOUND)
+        raise HTTPException(status_code=404, detail=error_hint.USER_NOT_FOUND)
     return db_user
 
 
-@app.post("/users/", response_model=schemas.User)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+@app.patch("/user/{user_id}", response_model=schemas.User)
+def update_user(user_id: int, user: schemas.UserUpdate, db: Session = Depends(get_db), lang: str = "en-US"):
+    """依照id更新user資訊"""
+    error_hint = get_language_setup(lang)
+    db_user = CRUD.get_user_by_id(db, user_id=user_id)
+    if db_user is None:
+        raise HTTPException(status_code=404, detail=error_hint.USER_NOT_FOUND)
+    user_data = user.model_dump(exclude_unset=True)
+    db_user = CRUD.update_user_data(db, user_id=user_id, user=user_data)
+    return db_user
+
+
+@app.delete("/user/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db), lang: str = "en-US"):
+    """依照id刪除user"""
+    error_hint = get_language_setup(lang)
+    try:
+        assert CRUD.get_user_by_id(db, user_id=user_id) is not None
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"{error_hint.USER_NOT_FOUND}")
+
+    delete_success = CRUD.delete_user_data(db, user_id=user_id)
+    if delete_success:
+        return HTTPException(status_code=200, detail=f"{error_hint.SUCCESS}")
+    else:
+        return HTTPException(status_code=400, detail=f"{error_hint.DELETE_FAIL}")
+
+
+@app.post("/user/", response_model=schemas.User)
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), lang: str = "en-US"):
+    """創建新的user"""
+    error_hint = get_language_setup(lang)
     try:
         email_info = validate_email(user.email, check_deliverability=True)
         user.email = email_info.normalized
     except EmailNotValidError as e:
-        raise HTTPException(status_code=400, detail=f"{error_code.en_US.EMAIL_NOT_VALID} : {e}")
+        raise HTTPException(status_code=400, detail=f"{error_hint.EMAIL_NOT_VALID} : {e}")
     db_user = CRUD.get_user_by_email(db, user_email=user.email)
     if db_user:
-        raise HTTPException(status_code=400, detail=error_code.en_US.EMAIL_ALREADY_REGISTERED)
+        raise HTTPException(status_code=400, detail=error_hint.EMAIL_ALREADY_REGISTERED)
     return CRUD.add_new_user(db=db, user=user)
 
 
 @app.get("/users/", response_model=list[schemas.User])
-def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    users = CRUD.get_users(db, skip=skip, limit=limit)
+def get_users(page: int = 1, limit: int = 100, db: Session = Depends(get_db), lang: str = "en-US"):
+    """查看user列表"""
+    users = CRUD.get_users(db, skip=page - 1, limit=limit)
     return users
 
 
-def get_language_setup(language): ...
+def get_language_setup(language):
+    match language:
+        case "zh-TW":
+            return error_code.zh_TW
+        case _:
+            return error_code.en_US

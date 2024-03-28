@@ -26,11 +26,11 @@ def add_new_user(db: Session, user: schemas.UserCreate):
     return db_user
 
 
-def get_users(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.User).offset(skip).limit(limit).all()
+def get_users(db: Session, skip: int = 0, limit: int = 100) -> list[models.User]:
+    return db.query(models.User).offset(skip * limit).limit(limit).all()
 
 
-def get_data(db: Session, search_filter: dict):
+def get_data(db: Session, search_filter: dict) -> models.User | None:
     try:
         result = db.query(models.User).filter(**search_filter).first()
     except Exception as e:
@@ -38,12 +38,12 @@ def get_data(db: Session, search_filter: dict):
     return result
 
 
-def get_user_by_id(db: Session, user_id: int):
+def get_user_by_id(db: Session, user_id: int) -> models.User | None:
     try:
         result = db.query(models.User).filter(models.User.id == user_id).first()
+        return result
     except Exception as e:
         logger.error(f"{e.__class__.__name__} : {str(e)}")
-    return result
 
 
 def get_user_by_email(db: Session, user_email: int):
@@ -54,10 +54,23 @@ def get_user_by_email(db: Session, user_email: int):
     return result
 
 
-def update_user_data(db: Session): ...
+def update_user_data(db: Session, user_id: int, user: schemas.UserUpdate) -> models.User | None:
+    try:
+        db.query(models.User).filter(models.User.id == user_id).update(user)
+        db.commit()
+        return get_user_by_id(db, user_id)
+    except Exception as e:
+        logger.error(f"{e.__class__.__name__} : {str(e)}")
 
 
-def delete_user_data(db: Session): ...
+def delete_user_data(db: Session, user_id: int) -> bool:
+    try:
+        db.query(models.User).filter(models.User.id == user_id).delete()
+        db.commit()
+        return True
+    except Exception as e:
+        logger.error(f"{e.__class__.__name__} : {str(e)}")
+        return False
 
 
 if __name__ == "__main__":
