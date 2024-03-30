@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 from user_info import models
 from FastApi.user_management import app, get_db
 import allure
+import pytest
 
 DATABASE_URL = "sqlite://"
 engine = create_engine(
@@ -97,18 +98,19 @@ class Test_database:
         assert response.status_code == 404, response.text
 
 
-if __name__ == "__main__":
-    import pytest
-
-    PATH = Path(__file__).parent.joinpath("report")
-    pytest.main(["-q", f"--alluredir={PATH}", "--clean-alluredir"])
+def allure_test():
     import os
-
-    os.system(f"allure generate -c -o '{str(PATH)}' ")
 
     from allure_combine import combine_allure
 
+    pytest.main(["-q", "--alluredir=allure-results", "--clean-alluredir"])
+    os.system("allure generate -c -o allure-report")
+    combine_allure("allure-report", remove_temp_files=True)
+
+
+if __name__ == "__main__":
+
     try:
-        combine_allure(str(PATH), remove_temp_files=True)
+        allure_test()
     except Exception:
-        pass
+        pytest.main(["-q"])

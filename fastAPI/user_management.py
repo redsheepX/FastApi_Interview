@@ -14,6 +14,7 @@ from FastApi.error_code import error_hint
 from email_validator import validate_email, EmailNotValidError
 from markdown import markdown
 from setting import setup
+from setting.setup import logger
 
 models.db.metadata.create_all(bind=engine)
 app = FastAPI()
@@ -21,6 +22,7 @@ app = FastAPI()
 
 @app.middleware("http")
 async def db_session_middleware(request: Request, call_next):
+
     response = Response("Internal server error", status_code=500)
     try:
         request.state.db = SessionLocal()
