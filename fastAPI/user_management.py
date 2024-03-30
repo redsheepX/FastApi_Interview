@@ -5,18 +5,29 @@ if __name__ == "__main__":
 
     sys.path.append(str(Path.cwd()))
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from user_info import models, CRUD, schemas
 from user_info.database import SessionLocal, engine
-from FastApi import error_code
+from FastApi.error_code import error_hint
 from email_validator import validate_email, EmailNotValidError
 from markdown import markdown
 from setting import setup
 
 models.db.metadata.create_all(bind=engine)
 app = FastAPI()
+
+
+@app.middleware("http")
+async def db_session_middleware(request: Request, call_next):
+    response = Response("Internal server error", status_code=500)
+    try:
+        request.state.db = SessionLocal()
+        response = await call_next(request)
+    finally:
+        request.state.db.close()
+    return response
 
 
 def get_db():
@@ -54,20 +65,18 @@ async def show_readme():
 
 
 @app.get("/user/{user_id}", response_model=schemas.User)
-def get_user(user_id: int, db: Session = Depends(get_db), lang: str = "en-US"):
+def get_user(user_id: int, db: Session = Depends(get_db)):
     """依照id列出user"""
 
     db_user = CRUD.get_user_by_id(db, user_id=user_id)
-    error_hint = get_language_setup(lang)
     if db_user is None:
         raise HTTPException(status_code=404, detail=error_hint.USER_NOT_FOUND)
     return db_user
 
 
 @app.patch("/user/{user_id}", response_model=schemas.User)
-def update_user(user_id: int, user: schemas.UserUpdate, db: Session = Depends(get_db), lang: str = "en-US"):
+def update_user(user_id: int, user: schemas.UserUpdate, db: Session = Depends(get_db)):
     """依照id更新user資訊"""
-    error_hint = get_language_setup(lang)
     db_user = CRUD.get_user_by_id(db, user_id=user_id)
     if db_user is None:
         raise HTTPException(status_code=404, detail=error_hint.USER_NOT_FOUND)
@@ -77,9 +86,8 @@ def update_user(user_id: int, user: schemas.UserUpdate, db: Session = Depends(ge
 
 
 @app.delete("/user/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db), lang: str = "en-US"):
+def delete_user(user_id: int, db: Session = Depends(get_db)):
     """依照id刪除user"""
-    error_hint = get_language_setup(lang)
     try:
         assert CRUD.get_user_by_id(db, user_id=user_id) is not None
     except Exception:
@@ -93,9 +101,8 @@ def delete_user(user_id: int, db: Session = Depends(get_db), lang: str = "en-US"
 
 
 @app.post("/user/", response_model=schemas.User)
-def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), lang: str = "en-US"):
+def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     """創建新的user"""
-    error_hint = get_language_setup(lang)
     try:
         email_info = validate_email(user.email, check_deliverability=True)
         user.email = email_info.normalized
@@ -108,15 +115,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db), lang: s
 
 
 @app.get("/users/", response_model=list[schemas.User])
-def get_users(page: int = 1, limit: int = 100, db: Session = Depends(get_db), lang: str = "en-US"):
+def get_users(page: int = 1, limit: int = 100, db: Session = Depends(get_db)):
     """查看user列表"""
     users = CRUD.get_users(db, skip=page - 1, limit=limit)
     return users
-
-
-def get_language_setup(language):
-    match language:
-        case "zh-TW":
-            return error_code.zh_TW
-        case _:
-            return error_code.en_US

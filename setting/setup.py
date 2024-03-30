@@ -11,4 +11,11 @@ USER_INFO_DATABASE_FILE_NAME = "user_info.db"
 USER_INFO_PATH = Path(__file__).parent.parent.joinpath("user_info")
 USER_INFO_DATABASE_PATH = Path(__file__).parent.parent.joinpath(USER_INFO_PATH, USER_INFO_DATABASE_FILE_NAME)
 
+# for test db
+TEST_USER_INFO_DATABASE_FILE_NAME = "test_user_info.db"
+TEST_USER_INFO_PATH = Path(__file__).parent.parent.joinpath("user_info", "test")
+TEST_USER_INFO_DATABASE_PATH = Path(__file__).parent.parent.joinpath(
+    TEST_USER_INFO_PATH, TEST_USER_INFO_DATABASE_FILE_NAME
+)
+
 READ_ME_MD_PATH = Path(__file__).parent.parent.joinpath("readme.md")
