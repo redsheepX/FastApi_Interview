@@ -22,11 +22,12 @@ app = FastAPI()
 
 @app.middleware("http")
 async def db_session_middleware(request: Request, call_next):
-
+    logger.debug(f"{request.client.host}:{request.client.port} | {request.url}")
     response = Response("Internal server error", status_code=500)
     try:
         request.state.db = SessionLocal()
         response = await call_next(request)
+
     finally:
         request.state.db.close()
     return response
@@ -41,8 +42,9 @@ def get_db():
 
 
 @app.get("/", response_class=HTMLResponse)
-async def show_readme():
+async def show_readme(request: Request):
     """顯示readme_for_FastAPI.md的內容"""
+
     try:
         with open(setup.READ_ME_MD_PATH, "r", encoding="utf-8") as f:
             markdown_content = f.read()

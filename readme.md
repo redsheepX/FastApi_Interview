@@ -6,7 +6,7 @@
 
   僅須執行 start_server.py 即可
 
-  若要用 commend line 執行可以使用 uvicorn FastApi.user_management:app --reload
+  若要用 commend line 執行可以使用 `uvicorn FastApi.user_management:app --reload`
 
 ---
 
